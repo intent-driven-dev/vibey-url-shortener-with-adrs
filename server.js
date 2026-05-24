@@ -7,6 +7,10 @@ const HOST = process.env.HOST || '127.0.0.1';
 const BASE_URL = process.env.BASE_URL || `http://${HOST}:${PORT}`;
 const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const SLUG_LENGTH = 7;
+const SAMPLE_URLS = [
+  'https://intent-driven.dev/',
+  'https://manning.com/'
+];
 
 const linksByCode = new Map();
 const codesByUrl = new Map();
@@ -254,6 +258,17 @@ function createShortUrl(longUrl) {
   codesByUrl.set(longUrl, code);
   return code;
 }
+
+function seedSampleUrls() {
+  for (const sampleUrl of SAMPLE_URLS) {
+    const normalized = normalizeUrl(sampleUrl);
+    if (normalized) {
+      createShortUrl(normalized);
+    }
+  }
+}
+
+seedSampleUrls();
 
 const server = http.createServer(async (req, res) => {
   try {
