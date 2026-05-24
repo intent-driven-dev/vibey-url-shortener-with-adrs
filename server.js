@@ -119,6 +119,7 @@ function homePage(errorMessage) {
   return pageTemplate(`
     <h1>URL Shortener</h1>
     <p class="muted">Paste a long URL and get a short link that redirects to it.</p>
+    <p><a class="button" href="/urls">View created URLs</a></p>
     <form method="post" action="/shorten">
       <div class="field">
         <label for="longUrl">Long URL</label>
@@ -145,6 +146,48 @@ function resultPage(shortUrl, longUrl) {
       </div>
       <div>
         <a class="button" href="/">Create another</a>
+        <a class="button" href="/urls" style="margin-left: 8px;">View created URLs</a>
+      </div>
+    </div>
+  `);
+}
+
+function urlsPage() {
+  const rows = [...linksByCode.entries()]
+    .map(([code, longUrl], index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td><code>${escapeHtml(`${BASE_URL}/${code}`)}</code></td>
+        <td><code>${escapeHtml(longUrl)}</code></td>
+      </tr>
+    `)
+    .join('');
+
+  return pageTemplate(`
+    <h1>Created URLs</h1>
+    <p class="muted">These links exist only for as long as this process is running.</p>
+    <div class="panel">
+      <div class="stack">
+        <div><a class="button" href="/">Create a new short URL</a></div>
+        <div><strong>Total:</strong> ${linksByCode.size}</div>
+      </div>
+      <div style="overflow-x:auto; margin-top:16px;">
+        <table style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">#</th>
+              <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">Short URL</th>
+              <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">Original URL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `
+              <tr>
+                <td colspan="3" style="padding:14px 8px; color:#55657d;">No URLs have been created yet.</td>
+              </tr>
+            `}
+          </tbody>
+        </table>
       </div>
     </div>
   `);
@@ -237,6 +280,12 @@ const server = http.createServer(async (req, res) => {
       const shortUrl = `${getRequestOrigin(req)}/${code}`;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(resultPage(shortUrl, normalized));
+      return;
+    }
+
+    if (req.method === 'GET' && requestUrl.pathname === '/urls') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(urlsPage());
       return;
     }
 
