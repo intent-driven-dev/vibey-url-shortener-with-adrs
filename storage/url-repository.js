@@ -1,7 +1,4 @@
-const crypto = require('crypto');
-
-const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const SLUG_LENGTH = 7;
+const { generateSlug } = require('./slug-generator');
 
 class UrlRepository {
   constructor(store) {
@@ -39,22 +36,11 @@ class UrlRepository {
   }
 
   async #generateUniqueCode() {
-    let code = this.#randomSlug();
+    let code = generateSlug();
     while (await this.store.hasCode(code)) {
-      code = this.#randomSlug();
+      code = generateSlug();
     }
     return code;
-  }
-
-  #randomSlug() {
-    const bytes = crypto.randomBytes(SLUG_LENGTH);
-    let slug = '';
-
-    for (let i = 0; i < SLUG_LENGTH; i += 1) {
-      slug += ALPHABET[bytes[i] % ALPHABET.length];
-    }
-
-    return slug;
   }
 }
 
