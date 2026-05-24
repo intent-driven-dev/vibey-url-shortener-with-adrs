@@ -1,19 +1,16 @@
 const http = require('http');
-const crypto = require('crypto');
 const { URL } = require('url');
+const { JsonUrlStore } = require('./storage/json-url-store');
+const { UrlRepository } = require('./storage/url-repository');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const BASE_URL = process.env.BASE_URL || `http://${HOST}:${PORT}`;
-const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const SLUG_LENGTH = 7;
 const SAMPLE_URLS = [
   'https://intent-driven.dev/',
   'https://manning.com/'
 ];
-
-const linksByCode = new Map();
-const codesByUrl = new Map();
+const repository = new UrlRepository(new JsonUrlStore());
 
 function normalizeUrl(input) {
   const raw = String(input || '').trim();
@@ -156,8 +153,8 @@ function resultPage(shortUrl, longUrl) {
   `);
 }
 
-function urlsPage() {
-  const rows = [...linksByCode.entries()]
+function urlsPage(entries) {
+  const rows = entries
     .map(([code, longUrl], index) => `
       <tr>
         <td>${index + 1}</td>
@@ -169,11 +166,11 @@ function urlsPage() {
 
   return pageTemplate(`
     <h1>Created URLs</h1>
-    <p class="muted">These links exist only for as long as this process is running.</p>
+    <p class="muted">These links are stored in the JSON repository and will be available after restart.</p>
     <div class="panel">
       <div class="stack">
         <div><a class="button" href="/">Create a new short URL</a></div>
-        <div><strong>Total:</strong> ${linksByCode.size}</div>
+        <div><strong>Total:</strong> ${entries.length}</div>
       </div>
       <div style="overflow-x:auto; margin-top:16px;">
         <table style="width:100%; border-collapse: collapse;">
@@ -232,95 +229,85 @@ function getRequestOrigin(req) {
   return `${protocol}://${host}`;
 }
 
-function randomSlug() {
-  const bytes = crypto.randomBytes(SLUG_LENGTH);
-  let slug = '';
-
-  for (let i = 0; i < SLUG_LENGTH; i += 1) {
-    slug += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-
-  return slug;
-}
-
-function createShortUrl(longUrl) {
-  const existing = codesByUrl.get(longUrl);
-  if (existing) {
-    return existing;
-  }
-
-  let code = randomSlug();
-  while (linksByCode.has(code)) {
-    code = randomSlug();
-  }
-
-  linksByCode.set(code, longUrl);
-  codesByUrl.set(longUrl, code);
-  return code;
-}
-
-function seedSampleUrls() {
+async function seedSampleUrls() {
   for (const sampleUrl of SAMPLE_URLS) {
     const normalized = normalizeUrl(sampleUrl);
     if (normalized) {
-      createShortUrl(normalized);
+      await repository.createOrGet(normalized);
     }
   }
 }
 
-seedSampleUrls();
+async function start() {
+  await repository.init();
+  await seedSampleUrls();
 
-const server = http.createServer(async (req, res) => {
-  try {
-    const requestUrl = new URL(req.url, BASE_URL);
+  const server = http.createServer(async (req, res) => {
+    try {
+      const requestUrl = new URL(req.url, BASE_URL);
 
-    if (req.method === 'GET' && requestUrl.pathname === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(homePage(''));
-      return;
-    }
-
-    if (req.method === 'POST' && requestUrl.pathname === '/shorten') {
-      const body = await readBody(req);
-      const { longUrl } = parseForm(body);
-      const normalized = normalizeUrl(longUrl);
-
-      if (!normalized) {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(homePage('Please enter a valid URL.'));
+      if (req.method === 'GET' && requestUrl.pathname === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(homePage(''));
         return;
       }
 
-      const code = createShortUrl(normalized);
-      const shortUrl = `${getRequestOrigin(req)}/${code}`;
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(resultPage(shortUrl, normalized));
-      return;
-    }
+      if (req.method === 'POST' && requestUrl.pathname === '/shorten') {
+        const body = await readBody(req);
+        const { longUrl } = parseForm(body);
+        const normalized = normalizeUrl(longUrl);
 
-    if (req.method === 'GET' && requestUrl.pathname === '/urls') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(urlsPage());
-      return;
-    }
+        if (!normalized) {
+          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(homePage('Please enter a valid URL.'));
+          return;
+        }
 
-    if (req.method === 'GET') {
-      const code = requestUrl.pathname.replace(/^\/+/, '');
-      if (code && linksByCode.has(code)) {
-        res.writeHead(302, { Location: linksByCode.get(code) });
-        res.end();
+        const record = await repository.createOrGet(normalized);
+        const shortUrl = `${getRequestOrigin(req)}/${record.code}`;
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(resultPage(shortUrl, normalized));
         return;
       }
+
+      if (req.method === 'GET' && requestUrl.pathname === '/urls') {
+        const entries = await repository.list();
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(urlsPage(entries.map(item => [item.code, item.longUrl])));
+        return;
+      }
+
+      if (req.method === 'GET') {
+        const code = requestUrl.pathname.replace(/^\/+/, '');
+        if (code) {
+          const record = await repository.findByCode(code);
+          if (record) {
+            res.writeHead(302, { Location: record.longUrl });
+            res.end();
+            return;
+          }
+        }
+      }
+
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(notFoundPage());
+    } catch (error) {
+      console.error(error);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(`Internal Server Error: ${error.message}`);
+        return;
+      }
+      res.destroy(error);
     }
+  });
 
-    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(notFoundPage());
-  } catch (error) {
-    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(`Internal Server Error: ${error.message}`);
-  }
-});
+  server.listen(PORT, HOST, () => {
+    console.log(`URL shortener running at ${BASE_URL}`);
+  });
+}
 
-server.listen(PORT, HOST, () => {
-  console.log(`URL shortener running at ${BASE_URL}`);
+start().catch(error => {
+  console.error(error);
+  process.exit(1);
 });
