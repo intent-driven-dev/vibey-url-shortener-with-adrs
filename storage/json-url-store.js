@@ -4,6 +4,8 @@ const path = require('path');
 class JsonUrlStore {
   constructor(options = {}) {
     this.filePath = options.filePath || path.join(__dirname, '..', 'data', 'urls.json');
+    this.now = options.now || (() => Date.now());
+    this.expirationMs = options.expirationMs || 90 * 24 * 60 * 60 * 1000;
     this.state = {
       links: []
     };
@@ -16,7 +18,11 @@ class JsonUrlStore {
       const raw = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        this.state.links = Array.isArray(parsed.links) ? parsed.links.filter(record => this.#isValidRecord(record)) : [];
+        this.state.links = Array.isArray(parsed.links)
+          ? parsed.links
+              .map(record => this.#normalizeRecord(record))
+              .filter(record => record !== null)
+          : [];
       }
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -36,7 +42,7 @@ class JsonUrlStore {
 
   async findByLongUrl(longUrl) {
     this.#assertLoaded();
-    const record = this.state.links.find(item => item.longUrl === longUrl);
+    const record = this.state.links.find(item => item.longUrl === longUrl && !this.#isExpired(item));
     return record ? { ...record } : null;
   }
 
@@ -47,17 +53,25 @@ class JsonUrlStore {
 
   async list() {
     this.#assertLoaded();
-    return this.state.links.map(record => ({ ...record }));
+    return this.state.links
+      .filter(record => !this.#isExpired(record))
+      .map(record => ({ ...record }));
   }
 
   async create(longUrl, code) {
     this.#assertLoaded();
-    const existing = this.state.links.find(item => item.longUrl === longUrl);
+    const existing = this.state.links.find(item => item.longUrl === longUrl && !this.#isExpired(item));
     if (existing) {
       return { ...existing };
     }
 
-    const record = { code, longUrl };
+    const createdAt = this.now();
+    const record = {
+      code,
+      longUrl,
+      createdAt,
+      expiresAt: createdAt + this.expirationMs
+    };
     this.state.links.push(record);
     await this.#persist();
     return { ...record };
@@ -65,7 +79,7 @@ class JsonUrlStore {
 
   async seed(longUrl, codeFactory) {
     this.#assertLoaded();
-    const existing = this.state.links.find(item => item.longUrl === longUrl);
+    const existing = this.state.links.find(item => item.longUrl === longUrl && !this.#isExpired(item));
     if (existing) {
       return { ...existing };
     }
@@ -105,6 +119,26 @@ class JsonUrlStore {
         typeof record.longUrl === 'string' &&
         record.longUrl.trim()
     );
+  }
+
+  #normalizeRecord(record) {
+    if (!this.#isValidRecord(record)) {
+      return null;
+    }
+
+    const createdAt = Number.isFinite(record.createdAt) ? record.createdAt : this.now();
+    const expiresAt = Number.isFinite(record.expiresAt) ? record.expiresAt : createdAt + this.expirationMs;
+
+    return {
+      code: record.code,
+      longUrl: record.longUrl,
+      createdAt,
+      expiresAt
+    };
+  }
+
+  #isExpired(record) {
+    return Number.isFinite(record.expiresAt) ? record.expiresAt <= this.now() : false;
   }
 }
 

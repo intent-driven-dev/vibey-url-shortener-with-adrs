@@ -119,7 +119,7 @@ function pageTemplate(body) {
 function homePage(errorMessage) {
   return pageTemplate(`
     <h1>URL Shortener</h1>
-    <p class="muted">Paste a long URL and get a short link that redirects to it.</p>
+    <p class="muted">Paste a long URL and get a short link that redirects to it for 90 days.</p>
     <p><a class="button" href="/urls">View created URLs</a></p>
     <form method="post" action="/shorten">
       <div class="field">
@@ -135,7 +135,7 @@ function homePage(errorMessage) {
 function resultPage(shortUrl, longUrl) {
   return pageTemplate(`
     <h1>Short URL created</h1>
-    <p class="muted">This link redirects to the original URL.</p>
+    <p class="muted">This link redirects to the original URL and expires 90 days after creation.</p>
     <div class="panel stack">
       <div>
         <label class="muted">Short URL</label>
@@ -155,18 +155,19 @@ function resultPage(shortUrl, longUrl) {
 
 function urlsPage(entries) {
   const rows = entries
-    .map(([code, longUrl], index) => `
+    .map((entry, index) => `
       <tr>
         <td>${index + 1}</td>
-        <td><code>${escapeHtml(`${BASE_URL}/${code}`)}</code></td>
-        <td><code>${escapeHtml(longUrl)}</code></td>
+        <td><code>${escapeHtml(`${BASE_URL}/${entry.code}`)}</code></td>
+        <td><code>${escapeHtml(entry.longUrl)}</code></td>
+        <td>${escapeHtml(new Date(entry.expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }))}</td>
       </tr>
     `)
     .join('');
 
   return pageTemplate(`
     <h1>Created URLs</h1>
-    <p class="muted">These links are stored in the JSON repository and will be available after restart.</p>
+    <p class="muted">Only active links are shown here. Each link expires 90 days after creation.</p>
     <div class="panel">
       <div class="stack">
         <div><a class="button" href="/">Create a new short URL</a></div>
@@ -179,12 +180,13 @@ function urlsPage(entries) {
               <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">#</th>
               <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">Short URL</th>
               <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">Original URL</th>
+              <th style="text-align:left; padding:10px 8px; border-bottom:1px solid #d9e2ef;">Expires</th>
             </tr>
           </thead>
           <tbody>
             ${rows || `
               <tr>
-                <td colspan="3" style="padding:14px 8px; color:#55657d;">No URLs have been created yet.</td>
+                <td colspan="4" style="padding:14px 8px; color:#55657d;">No URLs have been created yet.</td>
               </tr>
             `}
           </tbody>
@@ -198,6 +200,14 @@ function notFoundPage() {
   return pageTemplate(`
     <h1>Not found</h1>
     <p class="muted">That short code does not exist.</p>
+    <a class="button" href="/">Go home</a>
+  `);
+}
+
+function gonePage() {
+  return pageTemplate(`
+    <h1>Link expired</h1>
+    <p class="muted">This short URL expired after 90 days and no longer redirects.</p>
     <a class="button" href="/">Go home</a>
   `);
 }
@@ -273,7 +283,7 @@ async function start() {
       if (req.method === 'GET' && requestUrl.pathname === '/urls') {
         const entries = await repository.list();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(urlsPage(entries.map(item => [item.code, item.longUrl])));
+        res.end(urlsPage(entries));
         return;
       }
 
@@ -282,6 +292,11 @@ async function start() {
         if (code) {
           const record = await repository.findByCode(code);
           if (record) {
+            if (Number.isFinite(record.expiresAt) && record.expiresAt <= Date.now()) {
+              res.writeHead(410, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(gonePage());
+              return;
+            }
             res.writeHead(302, { Location: record.longUrl });
             res.end();
             return;
