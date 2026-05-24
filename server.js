@@ -5,10 +5,11 @@ const { URL } = require('url');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const BASE_URL = process.env.BASE_URL || `http://${HOST}:${PORT}`;
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const SLUG_LENGTH = 6;
+const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const SLUG_LENGTH = 7;
 
 const linksByCode = new Map();
+const codesByUrl = new Map();
 
 function normalizeUrl(input) {
   const raw = String(input || '').trim();
@@ -196,12 +197,18 @@ function randomSlug() {
 }
 
 function createShortUrl(longUrl) {
+  const existing = codesByUrl.get(longUrl);
+  if (existing) {
+    return existing;
+  }
+
   let code = randomSlug();
   while (linksByCode.has(code)) {
     code = randomSlug();
   }
 
   linksByCode.set(code, longUrl);
+  codesByUrl.set(longUrl, code);
   return code;
 }
 
