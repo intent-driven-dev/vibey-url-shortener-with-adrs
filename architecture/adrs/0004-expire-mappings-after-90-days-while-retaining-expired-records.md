@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Expire mappings after 90 days while retaining expired records
@@ -8,7 +8,7 @@ status: proposed
 
 Commit `9508cc3` explicitly required URLs to expire after 90 days. The implementation distinguishes expired codes from unknown codes and permits a destination to receive a fresh mapping after its previous mapping expires. [Store/repository tests](../../test/json-url-store.test.js) verify retention of expired records, exclusion from active lookups, and creation of a fresh code for an expired destination.
 
-This retrospective record is proposed for review. The 90-day requirement comes from commit history; retention, HTTP behavior, and tradeoffs below are based on the current implementation. No separate historical approval of these details was found.
+This retrospective record is accepted following explicit user approval. Acceptance records approval now, not evidence of historical approval. The 90-day requirement comes from commit history; retention, HTTP behavior, and tradeoffs below are based on the current implementation. No separate historical approval of these details was found.
 
 ## Considered Options
 

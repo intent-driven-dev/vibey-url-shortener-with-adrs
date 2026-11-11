@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Use seven-character mixed-case alphanumeric codes and reuse active mappings
@@ -8,7 +8,7 @@ status: proposed
 
 Commit `d35f99d` required seven-character, mixed-case alphanumeric slugs and reuse of the same slug for the same long URL. Commit `9508cc3` later introduced expiration; current behavior reuses a mapping only while it remains active. [Slug tests](../../test/slug-generator.test.js) check length and alphabet, and [store/repository tests](../../test/json-url-store.test.js) verify creation of a new code after expiry.
 
-This retrospective record is proposed for review. Requirements above come from commit history; random generation, alternatives, and tradeoffs below describe the implementation and reconstructed reasoning rather than a documented historical options review.
+This retrospective record is accepted following explicit user approval. Acceptance records approval now, not evidence of historical approval. Requirements above come from commit history; random generation, alternatives, and tradeoffs below describe the implementation and reconstructed reasoning rather than a documented historical options review.
 
 ## Considered Options
 

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Use a dependency-free Node.js application
@@ -8,7 +8,7 @@ status: proposed
 
 Users need to submit long URLs, receive short links, and follow those links to their destinations. Commit `7d5a031` explicitly required a dependency-free Node application. [package.json](../../package.json) and [server.js](../../server.js) implement that requirement using CommonJS and Node's built-in HTTP server, with server-rendered HTML, inline CSS, and ordinary form submissions.
 
-This is a retrospective record proposed for review. The requirement is documented in commit history; the options and tradeoffs below are reconstructed from the implementation, rather than evidence of a historical options review. Creating this record does not establish architectural approval.
+This retrospective record is accepted following explicit user approval. The requirement is documented in commit history; the options and tradeoffs below are reconstructed from the implementation, rather than evidence of a historical options review. Acceptance records approval now, not evidence of historical approval.
 
 ## Considered Options
 

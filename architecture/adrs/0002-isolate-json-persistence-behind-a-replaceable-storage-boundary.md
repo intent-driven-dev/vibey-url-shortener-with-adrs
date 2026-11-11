@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Isolate JSON persistence behind a replaceable storage boundary
@@ -8,7 +8,7 @@ status: proposed
 
 Short-code mappings must survive process restarts. Commit `de29f7d` explicitly requested JSON-file storage for now, structured so it could later be swapped to Postgres. [server.js](../../server.js) constructs a [UrlRepository](../../storage/url-repository.js) with a [JsonUrlStore](../../storage/json-url-store.js); HTTP handlers use the repository instead of manipulating the file.
 
-This retrospective record is proposed for review. The storage requirement comes from commit history; alternatives and tradeoffs below are reconstructed. Postgres is an intended extension, not an implemented adapter or an approved migration.
+This retrospective record is accepted following explicit user approval. Acceptance records approval now, not evidence of historical approval. The storage requirement comes from commit history; alternatives and tradeoffs below are reconstructed. Postgres is an intended extension, not an implemented adapter or an approved migration.
 
 ## Considered Options
 
