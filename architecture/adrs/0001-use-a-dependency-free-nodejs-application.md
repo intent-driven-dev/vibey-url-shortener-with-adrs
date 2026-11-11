@@ -20,6 +20,8 @@ This retrospective record is accepted following explicit user approval. The requ
 
 Chosen option: "A dependency-free Node.js process serving HTML and redirects", because it meets the explicit dependency constraint and supports the browser workflow without a frontend build or separate service.
 
+Proposed partial superseded-by: [ADR 0005 (proposed)](0005-use-async-for-slow-io-operations.md), which would allow the npm `async` package for selected slow I/O operations. This decision remains accepted pending acceptance of that successor; the proposal does not change the current dependency policy.
+
 The server handles creation at `POST /shorten`, active listings at `GET /urls`, and resolution at `GET /<code>`, using HTTP 302 for active redirects. Persistence is accessed through the [storage boundary](0002-isolate-json-persistence-behind-a-replaceable-storage-boundary.md). These route and rendering choices are observed implementation details; the original prompt did not prescribe them.
 
 ### Consequences
