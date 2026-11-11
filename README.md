@@ -6,6 +6,6 @@ This repository contains companion code for the book [_Spec-Driven Development: 
 
 # Vibey URL Shortener
 
-This repository contains the companion code for the Chapter 2 Vibe Coding exercise.
+This repository contains the companion code for the Chapter 6 where we retrospecitively use Architecture Decision Records skill on existing code without SDD.
 
 If you want to follow the evolution of the exercise, inspect the commit history. Each iteration shows the prompt used by the coding agent and the code changes introduced in that step.
